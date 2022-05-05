@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:file="http://www.mulesoft.org/schema/mule/file"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<file:config name="File_Config" doc:name="File Config" doc:id="6f8e54c3-ccd2-47b0-ba82-8cc88467cf24" >
+		<file:connection workingDir="/Users/tesfalem/Documents/Data-Transformation/Output" />
+	</file:config>
+	<flow name="data-transformation-xmlFlow" doc:id="0fb0e9d2-7ff9-4f85-8617-005d4a5013f4" >
+		<file:listener doc:name="On New or Updated File" doc:id="66020485-de86-4336-a7c8-121981986d7c" directory="/Users/tesfalem/Documents/Data-Transformation/Input" moveToDirectory="/Users/tesfalem/Documents/Data-Transformation/Backup" outputMimeType="application/xml" renameTo="#[&quot;backup-&quot; ++ now() as String{format: 'Y-M-d-h-m-s'} ++ &quot;-&quot; ++ vars.fileName]" watermarkMode="CREATED_TIMESTAMP">
+			<scheduling-strategy >
+				<fixed-frequency frequency="10" timeUnit="SECONDS"/>
+			</scheduling-strategy>
+			<file:matcher filenamePattern="*.xml"/>
+		</file:listener>
+		<set-variable value="#[attributes.fileName]" doc:name="fileName" doc:id="55cb803c-f02e-4445-8925-ffec9d84b7b5" variableName="fileName"/>
+		<scatter-gather doc:name="Scatter-Gather" doc:id="ea0f3e43-302d-4ee2-9fc0-9a2d9703cf19" >
+			<route >
+				<flow-ref doc:name="to json" doc:id="b7b76119-f981-4629-9732-7103708301d6" name="Tojsonsubflow"/>
+			</route>
+			<route >
+				<flow-ref doc:name="to csv" doc:id="d38d8137-c606-4e66-8203-557954c68148" name="Tocsvsubflow"/>
+				<logger level="INFO" doc:name="Logger" doc:id="6103eddc-0787-44e2-a91f-b7b386b5723c" message="Succesful"/>
+			</route>
+			<route >
+				<flow-ref doc:name="to xlsx" doc:id="44e97d98-1253-40da-91ea-b0665dadf016" name="Toxlsxsubflow"/>
+			</route>
+		</scatter-gather>
+	</flow>
+	<flow name="Tojsonsubflow" doc:id="e7342293-3845-49c2-a3cd-8bf0551cd875" >
+		<ee:transform doc:name="Transform Message" doc:id="8ecd16a2-32c1-4dbd-9125-fa2953f215e1" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload.root.*row
+
+]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<file:write doc:name="Write to Json" doc:id="ac4ff3ec-6ac2-4dfa-b327-e5eca94bc53e" path="#[&quot;file-&quot; ++ now() as String {format: 'y-M-d-h-m-s'} ++ vars.fileName ++ &quot;.json&quot;]" config-ref="File_Config"/>
+	</flow>
+	<flow name="Tocsvsubflow" doc:id="543a3c22-059b-41e6-b986-ffad742f6506" >
+		<ee:transform doc:name="Transform Message" doc:id="d7050e2d-82b7-441e-89fb-c472c7cacc53" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/csv
+---
+payload.root.*row]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<file:write doc:name="Write to csv" doc:id="048fc875-5953-46bc-b709-6d9540d1fec0" path="#[&quot;file-&quot; ++ now() as String {format: 'y-M-d-h-m-s'} ++ vars.fileName ++ &quot;.csv&quot;]" config-ref="File_Config"/>
+	</flow>
+	<flow name="Toxlsxsubflow" doc:id="ef6d0983-160e-4722-b699-752c079c70b4" >
+		<ee:transform doc:name="Transform Message" doc:id="63b9a6ef-84ae-4c89-8402-7ae43a09e649" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/xlsx
+---
+{
+'sheet1':payload.root.*row
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<file:write doc:name="Write" doc:id="1a5855dd-9dd8-4a1e-b4c6-ba0e7a7a728b" path="#[&quot;file-&quot; ++ now() as String {format: 'y-M-d-h-m-s'} ++ vars.fileName ++ &quot;.xlsx&quot;]" config-ref="File_Config"/>
+	</flow>
+</mule>
